@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Nepal Government Offices - Pokhara</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Leaflet & Plugins -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-control-geocoder@3.1.0/dist/Control.Geocoder.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-measure@3.1.0/dist/leaflet-measure.min.css">
+
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .sidebar {
+            width: 300px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-right: 1px solid #ccc;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .content {
+            display: flex;
+            height: calc(100% - 56px); /* minus navbar */
+        }
+
+        .navbar-brand img {
+            height: 30px;
+            margin-right: 10px;
+        }
+
+        .legend {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .legend i {
+            width: 12px;
+            height: 12px;
+            display: inline-block;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar with Nepal Logo -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-danger">
+  <div class="container-fluid">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+      <img src="./Emblem_of_Nepal.svg.png" alt="Nepal Logo" style="height: 30px;">
+      <span class="h5 mb-0">Government Offices in Pokhara</span>
+    </a>
+  </div>
+</nav>
+
+    <div class="content">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h5>Explore Offices</h5>
+            <input type="text" id="searchInput" class="form-control mb-2" placeholder="Search Office Name">
+            <button onclick="searchOffice()" class="btn btn-primary btn-sm mb-3 w-100">Search</button>
+
+            <p>Ward coverage: 6, 7, 17</p>
+            <button class="btn btn-outline-secondary btn-sm w-100 mb-2" onclick="map.fitBounds(thematic_map.getBounds())">Zoom to All</button>
+            <a href="https://en.wikipedia.org/wiki/Pokhara" target="_blank" class="btn btn-outline-info btn-sm w-100">About Pokhara</a>
+
+            <hr>
+            <p><strong>Created By:Kiran Guragain</strong></p>
+        </div>
+
+        <!-- Map -->
+        <div id="map"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-control-geocoder@3.1.0/dist/Control.Geocoder.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-measure@3.1.0/dist/leaflet-measure.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+    <!-- GeoJSON -->
+    <script src="./gps_data.js"></script>
+    <script src="./buff.js"></script>
+
+    <script>
+        const map = L.map('map').setView([28.2096, 83.9856], 13);
+        L.control.measure().addTo(map);
+
+        const baseLayers = {
+            "OSM": L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map),
+            "Google Streets": L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+                maxZoom: 20,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+            })
+        };
+
+        L.control.layers(baseLayers).addTo(map);
+        L.Control.geocoder().addTo(map);
+
+        L.geoJSON(buff, {
+            style: {
+                color: "blue",
+                fillOpacity: 0.01
+            }
+        }).addTo(map);
+
+        let highlightMarker;
+
+        const thematic_map = L.geoJSON(gps_data, {
+            pointToLayer: (feature, latlng) => {
+                const level = feature.properties.Lies_under_which_tie_of_governmental_body;
+                const color = level === "federal" ? "blue" :
+                              level === "provincial" ? "red" :
+                              level === "local" ? "green" : "gray";
+
+                return L.circleMarker(latlng, {
+                    radius: 5,
+                    fillColor: color,
+                    color: color,
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.6
+                });
+            },
+            onEachFeature: (feature, layer) => {
+                const p = feature.properties;
+                const img = p.List_of_services_they_provided_URL || "https://via.placeholder.com/150";
+                const popup = `
+                    <strong>Office Name:</strong> ${p.Name_of_the_office}<br>
+                    <strong>Office Head:</strong> ${p.Name_of_the_office_head}<br>
+                    <strong>Government Level:</strong> ${p.Lies_under_which_tie_of_governmental_body}<br>
+                    <strong>Established:</strong> ${p.Date_of_establishment}<br>
+                    <strong>Employees:</strong> ${p.Number_of_employees}<br>
+                    <strong>Vehicles:</strong> ${p.Number_of_vehicles_u_eeler_four_wheeler}<br>
+                    <img src="${img}" alt="Office Image" style="width: 100%; height: auto; margin-top: 5px; border-radius: 5px;"><br>
+                    <a href="${p.office_url}" target="_blank" style="color: blue;">Visit Website</a>
+                `;
+                layer.bindPopup(popup);
+                layer._officeName = p.Name_of_the_office.toLowerCase();
+                layer._latlng = layer.getLatLng();
+            }
+        }).addTo(map);
+
+        map.fitBounds(thematic_map.getBounds());
+
+        // Legend
+        const legend = L.control({ position: "bottomright" });
+        legend.onAdd = function () {
+            const div = L.DomUtil.create("div", "info legend");
+            div.innerHTML += "<h6>Government Level</h6>";
+            div.innerHTML += '<i style="background: blue;"></i> Federal<br>';
+            div.innerHTML += '<i style="background: red;"></i> Provincial<br>';
+            div.innerHTML += '<i style="background: green;"></i> Local<br>';
+            return div;
+        };
+        legend.addTo(map);
+
+        // Search Function
+        function searchOffice() {
+            const query = document.getElementById("searchInput").value.toLowerCase();
+            let found = false;
+
+            thematic_map.eachLayer(layer => {
+                if (layer._officeName && layer._officeName.includes(query)) {
+                    map.setView(layer._latlng, 17);
+                    if (highlightMarker) map.removeLayer(highlightMarker);
+                    highlightMarker = L.marker(layer._latlng, {
+                        icon: L.icon({
+                            iconUrl: "https://maps.gstatic.com/mapfiles/ms2/micons/blue-pushpin.png",
+                            iconSize: [32, 32],
+                            iconAnchor: [16, 32]
+                        })
+                    }).addTo(map).bindPopup(layer.getPopup().getContent()).openPopup();
+                    found = true;
+                }
+            });
+
+            if (!found) alert("No matching office found.");
+        }
+    </script>
+</body>
+</html>
